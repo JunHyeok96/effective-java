@@ -1,0 +1,203 @@
+## 점층적 생성자 패턴 (telescoping constructor pattern)
+
+``` Java
+public class NutritionFacts {
+
+    private final int servingSize; //(ml, 1회 제공량)    필수
+    private final int servings;    //(회, 총 n회 제공량)  필수
+    private final int calories;    //(1회 제공량당)      선택
+    private final int fat;         //(g/1회 제공량)      선택
+    private final int sodium;      //(g/1회 제공량)      선택
+    private final int carbohydrate; //(g/1회 제공량)     선택
+
+    public NutritionFacts(int servingSize, int servings) {
+        // NutritionFacts(servingSize, servings, 0, 0, 0, 0) 과 동일
+        this(servingSize, servings, 0); 
+    }
+
+    public NutritionFacts(int servingSize, int servings, int calories) {
+        // NutritionFacts(servingSize, servings, calories, 0, 0, 0)
+        this(servingSize, serving, calories, 0); 
+    }
+
+    public NutritionFacts(int servingSize, int servings, int calories, int fat) {
+        // NutritionFacts(servingSize, servings, calories, fat, 0, 0)
+        this(servingSize, serving, calories, fat, 0); 
+    }
+
+    public NutritionFacts(int servingSize, int servings, int calories, int fat, int sodium) {
+        this(servingSize, serving, calories, fat, sodium, 0); 
+    }
+
+    public NutritionFacts(int servingSize, int servings, int calories, int fat, int sodium, int carbohydrate) {
+        this.servingSize = servingSize;
+        this.servings = servings;
+        this.calories = calories;
+        this.fat = fat;
+        this.sodium = sodium;
+        this.carbohydrate = carbohydrate;
+    }
+}
+```
+``` Java
+// 클래스의 인스턴트 생성 (생성자 호출)
+NutritionFacts cocaCola = new NutritionFacts(240, 8, 100, 0, 35, 27) 
+```
+### 1. 설정하고 싶지 않은 매개변수도 포함하여야 함
+  ``` Java
+  public NutritionFacts(int servingSize, int servings, int calories, int sodium, int carbohydrate) { ... }
+  ```
+  > 위와 같은 생성자가 존재하지 않으므로 설정하고 싶지 않은 fat 매개변수를 0으로 설정해주어야 함.
+  
+
+### 2. 매개변수가 많아지면 코드를 작성하거나 읽기 힘듦
+  > 35가 무엇을 뜻하는지? 매개변수가 총 몇개인지?
+  ``` Java
+  NutritionFacts cocaCola = new NutritionFacts(240, 8, 100, 0, 27, 35) 
+  ```
+  > 실수로 sodium과 carbohydrate의 매개변수 순서가 바뀌었지만 컴파일 오류가 나지 않아 버그 찾기 힘듦
+  
+
+## 자바빈즈 패턴 (JavaBeans pattern)
+매개변수가 없는 생성자로 객체를 만들고 setter를 호출해 매개변수 값 설정
+``` Java
+public class NutritionFacts {
+  // 매개변수들은 (기본값이 있다면) 기본값으로 초기화된다.
+  private final int servingSize  = -1; // 필수; 기본값 없음
+  private final int servings     = -1; // 필수; 기본값 없음
+  private final int calories     = 0;    
+  private final int fat          = 0;         
+  private final int sodium       = 0;      
+  private final int carbohydrate = 0; 
+
+  public NutritionFacts() { }
+  // 세터 메서드들
+  // 점층적 생성자 패턴에 비해 좀더 읽기 쉬워졌다.
+  public void setServingSize(int servingSize) { servingSize = servingSize; }
+  public void setServings(int servings) { servings = servings; }
+  public void setCalories(int calories) { calories = calories; }
+  public void setFat(int fat) { fat = fat; }
+  public void setSodium(int sodium) { sodium = sodium; }
+  public void setCarbohydrate(int carbohydrate) { carbohydrate = carbohydrate; }
+}
+```
+
+### 1. 객체 하나를 만들려면 메서드를 여러개 호출해야 함
+``` Java
+NutritionFacts cocaCola = new NutritionFacts();
+cocaCola.setServingSize(240);
+cocaCola.setServings(8);
+cocaCola.setCalories(100);
+cocaCola.setSodium(35);
+cocaCola.setCarbohydrate(27);
+```
+> cocaCola라는 객체 1개를 만드는데 메서드가 너무 많다..
+
+### 2. 객체가 완전히 생성되기 전까지는 일관성(consistency)가 없음
+``` Java
+NutritionFacts cocaCola = new NutritionFacts();
+// 수많은 코드들이 있다 가정
+cocaCola.setServingSize(240);
+// 또 수많은 코드들...
+cocaCola.setCalories(100);
+cocaCola.setSodium(35);
+cocaCola.setCarbohydrate(27);
+```
+> setter들 사이에 다른코드를 삽입해 멀리 떨어트려놓으면 이처럼 필수 필드인 serving가 설정되지 않아 에러가 생겨도 무엇때문인지 알아차리기가 힘들다. 
+
+### 3. 클래스를 불변으로 만들려면 추가작업이 필요
+``` Java
+NutritionFacts cocaCola = new NutritionFacts();
+cocaCola.setServingSize(240);
+cocaCola.setServings(8);
+cocaCola.setCalories(100);
+// ...
+cocaCola.setServingSize(150);
+```
+> 한번 생성한 객체의 필드를 수정하게 하고 싶지 않을때, 자바빈즈 패턴은 생성후 setter로 필드 값을 수정해야 하므로 필드를 final로 만들수 없다. <br>
+> 이러한 단점을 보완하기 위해 freeze 메서드를 사용할 수 있다. (생성이 끝난 객체를 수동으로 얼리고 얼리기 전에는 사용할 수 없도록 함) <br>
+> 객체 사용 전 freeze 메서드 호출하지 않아도 런타임 에러가 발생하지 않음. <br>
+> 다루기 어려워 실무에서 사용되지 않음. 
+
+## 빌더 패턴 (Builder pattern)
+``` Java
+public class NutritionFacts {
+  // NutritionFacts 클래스 불변
+  private final int servingSize; 
+  private final int servings;    
+  private final int calories;    
+  private final int fat;         
+  private final int sodium;      
+  private final int carbohydrate;
+  
+  public static class Builder {
+    // 필수 매개변수
+    private final int servingSize; 
+    private final int servings;    
+    
+    // 선택 매개변수 - 기본값으로 초기화한다.
+    private int calories     = 0;    
+    private int fat          = 0;         
+    private int sodium       = 0;      
+    private int carbohydrate = 0;
+    
+    public Builder(int servingSize, int servings) {
+      this.servingSize = servingSize;
+      this.servings = servings;
+    }
+
+    public Builder calories(int val) 
+      { this.calories = val;  return this; }
+
+    public Builder fat(int val) 
+      { this.fat = val;  return this; }
+
+    public Builder sodium(int val) 
+      { this.sodium = val;  return this; }
+
+    public Builder carbohydrate(int val) 
+      { this.carbohydrate = val;  return this; }
+    
+    public NutritionFacts build(){
+      return new NutritionFacts(this);
+    }
+  }
+  
+  private NutritionFacts(Builder builder){
+    servingSize = builder.servingSize;
+    servings = builder.servings;
+    calories = builder.calories;
+    fat = builder.fat;
+    sodium = builder.sodium;
+    carbohydrate = builder.carbohydrate;
+  }
+}
+```
+
+### 1. 모든 매개변수의 기본값들을 한곳에 모아줌
+``` Java
+// 메서드 연쇄(method chaining) or 플루언트 API(fluent API)
+// 빌더의 세터 메서드는 빌더 자신을 반환하므로 연쇄적 호출 가능
+NutritionFacts cocaCola = new NutritionFacts.Builder(240, 8).calories(100).sodium(35).build();
+```
+> 코드를 쓰기 쉽고, 읽기도 쉬움
+
+#### 불변식 검사 (아이템 50)
+> 불변 : 어떠한 변경도 허용하지 않음 ex) String 객체는 한먼 만들어지면 값 변경 불가 <br>
+> 불변식 : 프로그램이 실행되는 동안, 혹은 정해진 기간 동안 반드시 만족해야 하는 조건 ex) list크기는 반드시 0 이상
+불변식을 보장하려면 빌더로부터 매개변수를 복사한 후 객체 필드 검사
+``` Java
+private NutritionFacts(Builder builder){
+    servingSize = builder.servingSize;
+    servings = builder.servings;
+    calories = builder.calories;
+    fat = builder.fat;
+    sodium = builder.sodium;
+    carbohydrate = builder.carbohydrate;
+    
+    if(calories < 0) {
+      throw new IllegalArgumentException(
+        calories + "는 0 이상이어야 한다.");
+  }
+```
+> 객체를 생성할때 칼로리가 0미만이면 IllegalArgumentException을 반환하며 에러 메세지를 출력함.
